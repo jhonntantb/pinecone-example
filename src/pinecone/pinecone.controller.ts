@@ -1,30 +1,29 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Param, Delete } from '@nestjs/common';
 import { PineconeService } from './pinecone.service';
-import { CreatePineconeDto } from './dto/create-pinecone.dto';
-import { UpdatePineconeDto } from './dto/update-pinecone.dto';
 
 @Controller('pinecone')
 export class PineconeController {
   constructor(private readonly pineconeService: PineconeService) {}
 
-  @Post()
-  create(@Body() createPineconeDto: CreatePineconeDto) {
-    return this.pineconeService.create(createPineconeDto);
+  @Post('cosine')
+  createCosineExample() {
+    //subir un archivo de para realizar el trabajo
+    return this.pineconeService.createCosineExample();
   }
 
-  @Get()
-  findAll() {
-    return this.pineconeService.findAll();
+  @Post('cosine/query')
+  cosineQueryProject(@Body('query') query: string) {
+    return this.pineconeService.cosineQueryProject(query);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.pineconeService.findOne(+id);
+  @Post('text')
+  upsertTextData(@Body('text') text: string) {
+    return this.pineconeService.upsertTextData(text);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePineconeDto: UpdatePineconeDto) {
-    return this.pineconeService.update(+id, updatePineconeDto);
+  @Post('text/query')
+  queryTextData(@Body('query') query: string) {
+    return this.pineconeService.queryTextData(query);
   }
 
   @Delete(':id')

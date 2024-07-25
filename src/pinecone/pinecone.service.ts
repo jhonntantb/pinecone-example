@@ -1,23 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { CreatePineconeDto } from './dto/create-pinecone.dto';
-import { UpdatePineconeDto } from './dto/update-pinecone.dto';
-
+import { PineconeRepository } from './pinecone.repository';
 @Injectable()
 export class PineconeService {
-  create(createPineconeDto: CreatePineconeDto) {
+  constructor(private readonly PineconeRepository: PineconeRepository) {}
+  createCosineExample() {
     return 'This action adds a new pinecone';
   }
 
-  findAll() {
-    return `This action returns all pinecone`;
+  cosineQueryProject(query: string) {
+    return `This action returns all pinecone ${query}`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} pinecone`;
+  upsertTextData(text: string) {
+    return `This action returns a #${text} pinecone`;
   }
 
-  update(id: number, updatePineconeDto: UpdatePineconeDto) {
-    return `This action updates a #${id} pinecone`;
+  queryTextData(query: string) {
+    return `This action updates a #${query} pinecone`;
   }
 
   remove(id: number) {
