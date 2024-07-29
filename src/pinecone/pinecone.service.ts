@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { PineconeRepository } from './pinecone.repository';
 @Injectable()
 export class PineconeService {
-  constructor(private readonly PineconeRepository: PineconeRepository) {}
-  createCosineExample() {
-    return 'This action adds a new pinecone';
+  constructor(private readonly pineconeRepository: PineconeRepository) {}
+  async createCosineExample() {
+    return await this.pineconeRepository.loadAndUpsertDocument();
   }
 
   cosineQueryProject(query: string) {
