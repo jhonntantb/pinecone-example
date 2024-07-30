@@ -5,7 +5,9 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import { PineconeStore } from '@langchain/pinecone';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { ConversationalRetrievalQAChain } from 'langchain/chains';
+// import { ConversationalRetrievalQAChain } from 'langchain/chains';
+import { loadQAStuffChain } from 'langchain/chains';
+//import { RetrievalQA } from "@langchain/chains";
 @Injectable()
 export class PineconeRepository {
   private readonly apiToken = process.env.PINECONE_API_KEY;
@@ -26,21 +28,28 @@ export class PineconeRepository {
 
   async loadAndUpsertDocument() {
     try {
-      const loader = new PDFLoader('./documents/Introduccion.pdf');
-      const docs = await loader.load();
-      console.log(docs.length);
-      console.log(docs[0]);
+      const loader = new PDFLoader('./documents/El_mundo_que_ella_deseaba.pdf');
+      const document = await loader.load();
       const textSplitter = new RecursiveCharacterTextSplitter({
         chunkSize: 100,
         chunkOverlap: 20,
       });
-      const splits = await textSplitter.splitDocuments(docs);
+      console.log(document.length);
+      console.log(document[3]);
+      const splits = await textSplitter.splitDocuments(document);
       console.log(splits.length);
-      console.log(splits[2]);
-      const promises = splits.map((text) =>
-        this.upsertPulseVector(text.pageContent, this.indexDocumentName),
+      const docs = splits.map(
+        (text) =>
+          new Document({
+            pageContent: text.pageContent,
+          }),
       );
-      await Promise.all(promises);
+      const index = this.pc.Index(this.indexDocumentName);
+      await PineconeStore.fromDocuments(docs, this.embedding, {
+        pineconeIndex: index,
+        maxConcurrency: 5,
+        namespace: 'document',
+      });
       return 'Documento cargado exitosamente';
     } catch (error) {
       throw new Error('Ocurrio un error algo al cargar el documento');
@@ -62,6 +71,14 @@ export class PineconeRepository {
       console.log(error);
     }
   }
+  async searchSimilarityByCosine(query: string) {
+    const response = await this.searchSimilarityVector(
+      query,
+      this.indexDocumentName,
+      'document',
+    );
+    return response;
+  }
   async searchSimilarityVector(
     query: string,
     indexName: string,
@@ -72,30 +89,44 @@ export class PineconeRepository {
       pineconeIndex,
       namespace: namespace,
     });
-    const result = await vectorStore.similaritySearch(query);
+    const result = await vectorStore.similaritySearch(query, 3);
     return result;
   }
-  async searchSimilarityByLMM(
-    query: string,
-    indexName: string,
-    namespace: string,
-  ) {
+  async searchSimilarityByLMM(query: string, indexName: string) {
     const pineconeIndex = this.pc.Index(indexName);
-    const vectorStore = await PineconeStore.fromExistingIndex(this.embedding, {
-      pineconeIndex,
-      namespace: namespace,
+    const queryEmbedding = await new OpenAIEmbeddings().embedQuery(query);
+
+    const queryResponse = await pineconeIndex.query({
+      topK: 10,
+      vector: queryEmbedding,
+      includeMetadata: true,
+      includeValues: true,
     });
+    // const vectorStore = await PineconeStore.fromExistingIndex(this.embedding, {
+    //   pineconeIndex,
+    //   namespace: namespace,
+    // });
     const model = new ChatOpenAI({
       modelName: 'gpt-3.5-turbo',
       openAIApiKey: this.apiToken,
       temperature: 1,
     });
-    const retriever = vectorStore.asRetriever({
-      searchType: 'similarity',
-      k: 1,
+    const chain = loadQAStuffChain(model);
+    const concatPageContent = queryResponse.matches
+      .map((match) => match.metadata.pageContent)
+      .join('');
+    const result = await chain.call({
+      input_document: [new Document({ pageContent: concatPageContent })],
+      question: query,
     });
-    const qa = ConversationalRetrievalQAChain.fromLLM(model, retriever);
-    return qa;
+    return result;
+    // const retriever = vectorStore.asRetriever({
+    //   searchType: 'similarity',
+    //   k: 1,
+    // });
+    // const selfQueryRetriever = RetrievalQAChain.fromLLM(model, retriever);
+    // // const qa = ConversationalRetrievalQAChain.fromLLM(model, retriever);
+    // // return qa;
   }
   async deleteAllRecordsByNamespace(indexName: string, namespace: string) {
     const pineconeIndex = this.pc.Index(indexName);

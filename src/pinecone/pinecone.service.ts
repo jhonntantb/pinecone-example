@@ -7,8 +7,8 @@ export class PineconeService {
     return await this.pineconeRepository.loadAndUpsertDocument();
   }
 
-  cosineQueryProject(query: string) {
-    return `This action returns all pinecone ${query}`;
+  async cosineQueryProject(query: string) {
+    return await this.pineconeRepository.searchSimilarityByCosine(query);
   }
 
   upsertTextData(text: string) {
@@ -19,7 +19,10 @@ export class PineconeService {
     return `This action updates a #${query} pinecone`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} pinecone`;
+  async deleteIndexByNamespace(indexName: string, namespace: string) {
+    return await this.pineconeRepository.deleteAllRecordsByNamespace(
+      indexName,
+      namespace,
+    );
   }
 }

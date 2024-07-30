@@ -1,10 +1,39 @@
-import { Controller, Post, Body, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  Query,
+} from '@nestjs/common';
 import { PineconeService } from './pinecone.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import * as pdf from 'pdf-parse';
 
 @Controller('pinecone')
 export class PineconeController {
   constructor(private readonly pineconeService: PineconeService) {}
 
+  @Post('pdf')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPDF(@UploadedFile() file: Express.Multer.File) {
+    try {
+      const render_options = {
+        normalizeWhitespace: false,
+        disableCombineTextItems: false,
+      };
+      const data = await pdf(file.buffer, render_options);
+      console.log(data.text);
+      return {
+        message: 'PDF file uploaded and content extracted successfully',
+        content: data.text,
+      };
+    } catch (error) {
+      console.error('Error al procesar el PDF:', error);
+      return { message: 'Error al procesar el PDF', error: error.message };
+    }
+  }
   @Post('cosine')
   createCosineExample() {
     //subir un archivo de para realizar el trabajo
@@ -26,8 +55,11 @@ export class PineconeController {
     return this.pineconeService.queryTextData(query);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.pineconeService.remove(+id);
+  @Delete('clean')
+  deleteIndexByNamespace(
+    @Query('namespace') namespace: string,
+    @Query('indexName') indexName: string,
+  ) {
+    return this.pineconeService.deleteIndexByNamespace(indexName, namespace);
   }
 }
