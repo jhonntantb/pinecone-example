@@ -24,7 +24,6 @@ export class PineconeController {
         disableCombineTextItems: false,
       };
       const data = await pdf(file.buffer, render_options);
-      console.log(data.text);
       return {
         message: 'PDF file uploaded and content extracted successfully',
         content: data.text,
@@ -45,6 +44,10 @@ export class PineconeController {
     return this.pineconeService.cosineQueryProject(query);
   }
 
+  @Post('cosine/LLM')
+  cosineQueryLLM(@Body('query') text: string) {
+    return this.pineconeService.cosineQueryProjectLLM(text);
+  }
   @Post('text')
   upsertTextData(@Body('text') text: string) {
     return this.pineconeService.upsertTextData(text);

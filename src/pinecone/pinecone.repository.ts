@@ -11,6 +11,7 @@ import { loadQAStuffChain } from 'langchain/chains';
 @Injectable()
 export class PineconeRepository {
   private readonly apiToken = process.env.PINECONE_API_KEY;
+  private readonly openaiApiToken = process.env.OPENAI_SECRET_KEY;
   private readonly indexDocumentName = process.env.PINECONE_INDEX_NAME_DOCUMENT;
   private readonly indexTextName = process.env.PINECONE_INDEX_NAME_TEXT;
   private readonly embedding: OpenAIEmbeddings;
@@ -34,10 +35,8 @@ export class PineconeRepository {
         chunkSize: 100,
         chunkOverlap: 20,
       });
-      console.log(document.length);
-      console.log(document[3]);
       const splits = await textSplitter.splitDocuments(document);
-      console.log(splits.length);
+
       const docs = splits.map(
         (text) =>
           new Document({
@@ -58,11 +57,11 @@ export class PineconeRepository {
   async upsertPulseVector(text: string, indexName: string) {
     try {
       const index = this.pc.Index(indexName);
-      const docs = new Document({
+      const doc = new Document({
         pageContent: text,
       });
 
-      await PineconeStore.fromDocuments([docs], this.embedding, {
+      await PineconeStore.fromDocuments([doc], this.embedding, {
         pineconeIndex: index,
         maxConcurrency: 5,
         namespace: 'document',
@@ -92,41 +91,33 @@ export class PineconeRepository {
     const result = await vectorStore.similaritySearch(query, 3);
     return result;
   }
+  async searchCosineByLLM(query: string) {
+    return await this.searchSimilarityByLMM(query, this.indexDocumentName);
+  }
   async searchSimilarityByLMM(query: string, indexName: string) {
     const pineconeIndex = this.pc.Index(indexName);
-    const queryEmbedding = await new OpenAIEmbeddings().embedQuery(query);
+    const queryEmbedding = await this.embedding.embedQuery(query);
 
-    const queryResponse = await pineconeIndex.query({
+    const queryResponse = await pineconeIndex.namespace('document').query({
       topK: 10,
       vector: queryEmbedding,
       includeMetadata: true,
       includeValues: true,
     });
-    // const vectorStore = await PineconeStore.fromExistingIndex(this.embedding, {
-    //   pineconeIndex,
-    //   namespace: namespace,
-    // });
     const model = new ChatOpenAI({
       modelName: 'gpt-3.5-turbo',
-      openAIApiKey: this.apiToken,
+      openAIApiKey: this.openaiApiToken,
       temperature: 1,
     });
     const chain = loadQAStuffChain(model);
     const concatPageContent = queryResponse.matches
-      .map((match) => match.metadata.pageContent)
+      .map((match) => match.metadata.text)
       .join('');
     const result = await chain.call({
-      input_document: [new Document({ pageContent: concatPageContent })],
+      input_documents: [new Document({ pageContent: concatPageContent })],
       question: query,
     });
     return result;
-    // const retriever = vectorStore.asRetriever({
-    //   searchType: 'similarity',
-    //   k: 1,
-    // });
-    // const selfQueryRetriever = RetrievalQAChain.fromLLM(model, retriever);
-    // // const qa = ConversationalRetrievalQAChain.fromLLM(model, retriever);
-    // // return qa;
   }
   async deleteAllRecordsByNamespace(indexName: string, namespace: string) {
     const pineconeIndex = this.pc.Index(indexName);

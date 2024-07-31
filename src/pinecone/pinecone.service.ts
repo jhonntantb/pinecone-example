@@ -11,6 +11,10 @@ export class PineconeService {
     return await this.pineconeRepository.searchSimilarityByCosine(query);
   }
 
+  async cosineQueryProjectLLM(query: string) {
+    return await this.pineconeRepository.searchCosineByLLM(query);
+  }
+
   upsertTextData(text: string) {
     return `This action returns a #${text} pinecone`;
   }
