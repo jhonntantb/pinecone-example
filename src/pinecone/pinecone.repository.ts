@@ -5,15 +5,15 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import { PineconeStore } from '@langchain/pinecone';
 import { Pinecone } from '@pinecone-database/pinecone';
-// import { ConversationalRetrievalQAChain } from 'langchain/chains';
 import { loadQAStuffChain } from 'langchain/chains';
-//import { RetrievalQA } from "@langchain/chains";
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
+import { RetrievalQAChain } from 'langchain/chains';
+
 @Injectable()
 export class PineconeRepository {
   private readonly apiToken = process.env.PINECONE_API_KEY;
   private readonly openaiApiToken = process.env.OPENAI_SECRET_KEY;
   private readonly indexDocumentName = process.env.PINECONE_INDEX_NAME_DOCUMENT;
-  private readonly indexTextName = process.env.PINECONE_INDEX_NAME_TEXT;
   private readonly embedding: OpenAIEmbeddings;
   private readonly pc: Pinecone;
   constructor() {
@@ -27,13 +27,13 @@ export class PineconeRepository {
     });
   }
 
-  async loadAndUpsertDocument() {
+  async loadAndUpsertDocument(documentName: string) {
     try {
-      const loader = new PDFLoader('./documents/El_mundo_que_ella_deseaba.pdf');
+      const loader = new PDFLoader(`./documents/${documentName}`);
       const document = await loader.load();
       const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 100,
-        chunkOverlap: 20,
+        chunkSize: 500,
+        chunkOverlap: 100,
       });
       const splits = await textSplitter.splitDocuments(document);
 
@@ -118,6 +118,33 @@ export class PineconeRepository {
       question: query,
     });
     return result;
+  }
+
+  async queryCosineAndMemory(query: string) {
+    const loader = new PDFLoader(`./documents/habitos-atomicos.pdf`);
+    const docs = await loader.load();
+    const textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 500,
+      chunkOverlap: 100,
+    });
+
+    const splittedDocs = await textSplitter.splitDocuments(docs);
+
+    const vectorStore = await MemoryVectorStore.fromDocuments(
+      splittedDocs,
+      this.embedding,
+    );
+    const model = new ChatOpenAI({
+      modelName: 'gpt-3.5-turbo',
+      apiKey: this.openaiApiToken,
+    });
+    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
+
+    //Change the query to the question you want to ask
+    const response = await chain.invoke({
+      query: query,
+    });
+    return response;
   }
   async deleteAllRecordsByNamespace(indexName: string, namespace: string) {
     const pineconeIndex = this.pc.Index(indexName);

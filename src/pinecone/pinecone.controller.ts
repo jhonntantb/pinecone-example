@@ -34,9 +34,9 @@ export class PineconeController {
     }
   }
   @Post('cosine')
-  createCosineExample() {
+  createCosineExample(@Body('documentName') documentName: string) {
     //subir un archivo de para realizar el trabajo
-    return this.pineconeService.createCosineExample();
+    return this.pineconeService.createCosineExample(documentName);
   }
 
   @Post('cosine/query')
@@ -48,14 +48,14 @@ export class PineconeController {
   cosineQueryLLM(@Body('query') text: string) {
     return this.pineconeService.cosineQueryProjectLLM(text);
   }
-  @Post('text')
-  upsertTextData(@Body('text') text: string) {
-    return this.pineconeService.upsertTextData(text);
+  @Post('memory')
+  upsertMemoryData(@Body('documentName') documentName: string) {
+    return this.pineconeService.upsertMemoryData(documentName);
   }
 
-  @Post('text/query')
-  queryTextData(@Body('query') query: string) {
-    return this.pineconeService.queryTextData(query);
+  @Post('memory/query')
+  queryMemoryData(@Body('query') query: string) {
+    return this.pineconeService.queryMemoryData(query);
   }
 
   @Delete('clean')
